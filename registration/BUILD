@@ -51,6 +51,6 @@ cc_test(
     deps = [
         ":registration",
         ":registration_use",
-        "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )
