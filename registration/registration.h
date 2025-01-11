@@ -140,9 +140,8 @@ class Registrar {
   // These are on on-demand constructed once
   // per process and ownership is retained.
   static const std::vector<Base*>& GetDefault() {
-    static_assert(std::is_same<
-            typename has_make::type,
-            std::function<std::unique_ptr<Base>()>>::value,
+    static_assert(
+        has_make::defaulted,
         "Registrar<B>::GetDefault() disabled where B::MakeArgs is not empty.");
     // grab this only the first time.
     static auto *hold = new auto{Make()};
@@ -167,10 +166,12 @@ class Registrar {
   template <class, class> friend struct Register;
 
   template <class t>
-  struct has_make_t {
-    template <class... c>
-    static std::function<std::unique_ptr<Base>(c...)> convert(std::tuple<c...>);
-    using type = decltype(convert(std::declval<t>()));
+  struct has_make_t;
+
+  template <class... c>
+  struct has_make_t<std::tuple<c...>> {
+    using type = std::function<std::unique_ptr<Base>(c...)>;
+    static constexpr bool defaulted = sizeof...(c) == 0;
   };
 
   // SFINAE magic to extract the arguments.
@@ -202,14 +203,13 @@ template <class Base, class Derived>
 struct Register {
   Register() {
     static auto _ = [] {  // Do this only once per type.
+      static constexpr auto mk = [](const auto &...ts) {
+        return std::unique_ptr<Base>{new Derived{ts...}};
+      };
       auto *r = Registrar<Base>::Get();
       using BF = typename Registrar<Base>::Factory;
-      r->factories_.emplace_back(BF{
-          [](const auto &...ts) {
-            return std::unique_ptr<Base>{new Derived{ts...}};
-          },
-          BF::MakeKey(static_cast<Derived *>(nullptr)),
-      });
+      r->factories_.emplace_back(
+          BF{mk, BF::MakeKey(static_cast<Derived *>(nullptr))});
       return nullptr;
     }();
     (void)_;  // Ignore unused.
