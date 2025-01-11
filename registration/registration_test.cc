@@ -28,6 +28,7 @@
 #include "registration/registration.h"
 
 #include <set>
+#include <tuple>
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -50,7 +51,7 @@ TEST(RegistrationTest, Basic) {
   EXPECT_THAT(made, SizeIs(2));
 
   std::set<int> v;
-  for (const auto& i : made) v.insert(i->F());
+  for (const auto &i : made) v.insert(i->F());
   EXPECT_THAT(v, SizeIs(2));
   EXPECT_THAT(v, UnorderedElementsAre(6, 9));
 }
@@ -89,7 +90,7 @@ TEST(RegistrationTest, Arg) {
   EXPECT_THAT(made, SizeIs(1));
 
   std::set<int> v;
-  for (const auto& i : made) v.insert(i->F());
+  for (const auto &i : made) v.insert(i->F());
   EXPECT_THAT(v, SizeIs(1));
   EXPECT_THAT(v, UnorderedElementsAre(1));
 }
@@ -102,7 +103,7 @@ struct BY {
   typedef int RegistrationKeyType;
 };
 
-template<int i, int y = 0>
+template <int i, int y = 0>
 struct DY : public BY {
   static constexpr int RegistrationKey = i;
   int F() override { return i + y; }
