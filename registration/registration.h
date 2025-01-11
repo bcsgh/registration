@@ -32,6 +32,7 @@
 #include <list>
 #include <memory>
 #include <set>
+#include <variant>
 #include <vector>
 
 namespace registration {
@@ -106,7 +107,8 @@ class Registrar {
 
     std::vector<std::unique_ptr<Base>> ret;
     ret.reserve(r->factories_.size());
-    for (const auto &f : r->factories_) ret.emplace_back(f.fn(c...));
+    typename has_make::arg args{std::tuple{c...}};
+    for (const auto &f : r->factories_) ret.emplace_back(f.fn(args));
     return ret;
   }
 
@@ -119,9 +121,10 @@ class Registrar {
 
     std::vector<std::unique_ptr<Base>> ret;
     ret.reserve(r->factories_.size());
+    typename has_make::arg args{std::tuple{c...}};
     for (const auto &f : r->factories_) {
       if (k != f.key) continue;
-      ret.emplace_back(f.fn(c...));
+      ret.emplace_back(f.fn(args));
     }
     return ret;
   }
@@ -170,8 +173,17 @@ class Registrar {
 
   template <class... c>
   struct has_make_t<std::tuple<c...>> {
-    using type = std::function<std::unique_ptr<Base>(c...)>;
+    using arg = std::variant<std::tuple<c...>>;
+    using type = std::function<std::unique_ptr<Base>(arg)>;
     static constexpr bool defaulted = sizeof...(c) == 0;
+  };
+
+  template <class... c>
+  struct has_make_t<std::variant<c...>> {
+    using arg = std::variant<c...>;
+    using type = std::function<std::unique_ptr<Base>(arg)>;
+    static constexpr bool defaulted =
+        (false || ... || std::is_same_v<c, std::tuple<>>);
   };
 
   // SFINAE magic to extract the arguments.
@@ -206,10 +218,17 @@ struct Register {
       static constexpr auto mk = [](const auto &...ts) {
         return std::unique_ptr<Base>{new Derived{ts...}};
       };
+      static constexpr auto apply = [](const auto &t) {
+        return std::apply(mk, t);
+      };
+      static constexpr auto visit = [](const auto &v) {
+        return std::visit(apply, v);
+      };
+
       auto *r = Registrar<Base>::Get();
       using BF = typename Registrar<Base>::Factory;
       r->factories_.emplace_back(
-          BF{mk, BF::MakeKey(static_cast<Derived *>(nullptr))});
+          BF{visit, BF::MakeKey(static_cast<Derived *>(nullptr))});
       return nullptr;
     }();
     (void)_;  // Ignore unused.

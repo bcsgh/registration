@@ -29,6 +29,7 @@
 
 #include <set>
 #include <tuple>
+#include <variant>
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -36,6 +37,7 @@
 
 namespace registration {
 namespace {
+using testing::Pointee;
 using testing::SizeIs;
 using testing::UnorderedElementsAre;
 
@@ -125,5 +127,42 @@ TEST(RegistrationTest, Filter) {
   EXPECT_THAT(Registrar<BY>::GetKeys(),
               UnorderedElementsAre(1, 2));
 }
+
+struct Multi {
+  virtual ~Multi() = default;
+  using MakeArgs = std::variant<      //
+      std::tuple<>,                   //
+      std::tuple<int, int>,           //
+      std::tuple<float, std::string>  //
+      >;
+
+  operator int() const { return flag; }
+
+ protected:
+  Multi(int f) : flag(f) {}
+
+ private:
+  int flag;
+};
+
+struct MultiA : public Multi {
+  MultiA() : Multi(0) {}
+  MultiA(int, int) : Multi(1) {}
+  MultiA(float, const std::string &) : Multi(2) {}
+};
+
+Register<Multi, MultiA> m_ma;
+
+TEST(RegistrationTest, Multi) {
+  EXPECT_THAT(Registrar<Multi>::GetDefault(),
+              UnorderedElementsAre(Pointee(0)));
+
+  EXPECT_THAT(Registrar<Multi>::Make(0, 0),  //
+              UnorderedElementsAre(Pointee(1)));
+
+  EXPECT_THAT(Registrar<Multi>::Make(0.0, std::string{}),
+              UnorderedElementsAre(Pointee(2)));
+}
+
 }  // namespace
 }  // namespace registration
