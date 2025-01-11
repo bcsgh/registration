@@ -91,7 +91,7 @@ auto made = Registrar<AbstractBaseClass>::Make("Hello world");
 template <class Base>
 class Registrar {
   // For SFINAE
-  template<class T> struct mix { using t = Base; };
+  template <class T> struct mix { using t = Base; };
 
   // A base class without a virtual destructor is a huge foot-gun.
   // Just forbid it and force people to deal with it.
@@ -100,38 +100,39 @@ class Registrar {
  public:
   // Construct one new instance of each type registered.
   // Ownership is transferred to the called.
-  template<class... C>
+  template <class... C>
   static std::vector<std::unique_ptr<Base>> Make(const C &...c) {
     auto *r = Get();
 
     std::vector<std::unique_ptr<Base>> ret;
     ret.reserve(r->factories_.size());
-    for (const auto& f : r->factories_) ret.emplace_back(f.fn(c...));
+    for (const auto &f : r->factories_) ret.emplace_back(f.fn(c...));
     return ret;
   }
 
-  template<class F, class... C>
-  static std::vector<std::unique_ptr<Base>> MakeOnly(const F &k, const C &...c) {
+  template <class F, class... C>
+  static std::vector<std::unique_ptr<Base>> MakeOnly(  //
+      const F &k, const C &...c) {
     static_assert(sizeof(typename Base::RegistrationKeyType) >= 0);
 
     auto *r = Get();
 
     std::vector<std::unique_ptr<Base>> ret;
     ret.reserve(r->factories_.size());
-    for (const auto& f : r->factories_) {
+    for (const auto &f : r->factories_) {
       if (k != f.key) continue;
       ret.emplace_back(f.fn(c...));
     }
     return ret;
   }
 
-  template<class B = Base, class K = typename B::RegistrationKeyType>
+  template <class B = Base, class K = typename B::RegistrationKeyType>
   static std::set<K> GetKeys() {
     static_assert(std::is_same<B, Base>::value);
     static_assert(std::is_same<K, typename B::RegistrationKeyType>::value);
 
     std::set<K> ret;
-    for (const auto& f : Get()->factories_) ret.emplace(f.key);
+    for (const auto &f : Get()->factories_) ret.emplace(f.key);
     return ret;
   }
 
@@ -146,9 +147,9 @@ class Registrar {
     // grab this only the first time.
     static auto *hold = new auto{Make()};
     static auto *ret = [] {
-      auto *x = new std::vector<Base*>;
+      auto *x = new std::vector<Base *>;
       x->reserve(hold->size());
-      for(const auto &i : *hold) x->push_back(i.get());
+      for (const auto &i : *hold) x->push_back(i.get());
       return x;
     }();
     return *ret;
@@ -158,39 +159,39 @@ class Registrar {
   Registrar() = default;
 
   // On-demand construct the global static instance.
-  static Registrar* Get() {
+  static Registrar *Get() {
     static auto *ret = new Registrar;
     return ret;
   }
 
-  template<class, class> friend struct Register;
+  template <class, class> friend struct Register;
 
-  template<class t>
+  template <class t>
   struct has_make_t {
-    template<class... c>
+    template <class... c>
     static std::function<std::unique_ptr<Base>(c...)> convert(std::tuple<c...>);
     using type = decltype(convert(std::declval<t>()));
   };
 
   // SFINAE magic to extract the arguments.
-  template<class C>
-  static has_make_t<typename C::MakeArgs> HasMake(typename C::MakeArgs*);
-  template<class C>
+  template <class C>
+  static has_make_t<typename C::MakeArgs> HasMake(typename C::MakeArgs *);
+  template <class C>
   static has_make_t<std::tuple<>> HasMake(...);
   using has_make = decltype(HasMake<Base>(nullptr));
 
   struct Factory {
     // Compute all the key stuff
-    template<class T, class V = typename mix<T>::t::RegistrationKeyType>
+    template <class T, class V = typename mix<T>::t::RegistrationKeyType>
     static V MakeKey(T*) { return static_cast<V>(T::RegistrationKey); }
     static char MakeKey(...) { return 0; }
-    using key_type = decltype(MakeKey(std::declval<Base*>()));
+    using key_type = decltype(MakeKey(std::declval<Base *>()));
 
     typename has_make::type fn;
     key_type key;
 
-    Factory(typename has_make::type f, key_type k)
-        : fn(std::move(f)),
+    Factory(typename has_make::type f, key_type k)  //
+        : fn(std::move(f)),                         //
           key(k) {}
   };
 
@@ -203,9 +204,12 @@ struct Register {
     static auto _ = [] {  // Do this only once per type.
       auto *r = Registrar<Base>::Get();
       using BF = typename Registrar<Base>::Factory;
-      r->factories_.emplace_back(BF([](const auto&... ts) {
-        return std::unique_ptr<Base>{new Derived{ts...}};
-      }, BF::MakeKey(static_cast<Derived*>(nullptr))));
+      r->factories_.emplace_back(BF{
+          [](const auto &...ts) {
+            return std::unique_ptr<Base>{new Derived{ts...}};
+          },
+          BF::MakeKey(static_cast<Derived *>(nullptr)),
+      });
       return nullptr;
     }();
     (void)_;  // Ignore unused.
