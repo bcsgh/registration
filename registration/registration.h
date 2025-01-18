@@ -121,7 +121,7 @@ class Registrar {
 
     std::vector<std::unique_ptr<Base>> ret;
     ret.reserve(r->factories_.size());
-    typename has_make::arg args{std::tuple{c...}};
+    typename has_make::arg args{std::tuple<const C &...>{c...}};
     for (const auto &f : r->factories_) {
       if (k != f.key) continue;
       ret.emplace_back(f.fn(args));
