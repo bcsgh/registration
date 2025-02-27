@@ -6,5 +6,11 @@ module(
 #############################################
 bazel_dep(
     name = "googletest",
-    version = "1.15.2",
+    version = "1.16.0",
+    dev_dependency = True,
+)
+
+bazel_dep(
+    name = "rules_cc",
+    version = "0.1.1",
 )
